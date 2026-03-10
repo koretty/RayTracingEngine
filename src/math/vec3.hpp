@@ -35,12 +35,12 @@ public:
         return *this *= 1 / t;
     }
 
-    double length() const {
-        return std::sqrt(length_squared());
-    }
-
     double length_squared() const {
         return x*x + y*y + z*z;
+    }
+
+    double length() const {
+        return std::sqrt(length_squared());
     }
 };
 
