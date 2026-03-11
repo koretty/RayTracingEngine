@@ -49,6 +49,11 @@ public:
     float length() const {
         return std::sqrt(length_squared());
     }
+
+    bool near_zero() const {
+        const auto s = 1e-8f;
+        return (std::abs(x) < s) && (std::abs(y) < s) && (std::abs(z) < s);
+    }
 };
 
 inline Vec3 operator+(const Vec3& u, const Vec3& v) {
@@ -87,6 +92,10 @@ inline Vec3 cross(const Vec3& u, const Vec3& v) {
 
 inline Vec3 unit_vector(const Vec3& v) {
     return v / v.length();
+}
+
+inline Vec3 reflect(const Vec3& v, const Vec3& n) {
+    return v - 2.0f * dot(v, n) * n;
 }
 
 using Point3 = Vec3;   

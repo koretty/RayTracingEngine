@@ -1,5 +1,6 @@
 #include "renderer.hpp"
 #include "../math/math_utils.hpp"
+#include <cmath>
 
 Renderer::Renderer(int width, int height, int samples_per_pixel, int max_depth) : width(width), height(height), samples_per_pixel(samples_per_pixel), max_depth(max_depth){
     pixels.resize(width * height);
@@ -21,24 +22,36 @@ void Renderer::render(const Scene& scene, const Camera& camera) {
                     color = color + trace_ray(r, scene, 0); 
                 }
             }
-            // Screen Y usually goes top-to-bottom, but rendering math assumes bottom-to-top.
-            // Flip the Y coordinate when writing to the pixel buffer.
             int pixel_y = height - 1 - y;
-            pixels[pixel_y * width + x] = to_color32(color * (1.0f / static_cast<float>(actual_samples)));
+            Color pixel_color = color * (1.0f / static_cast<float>(actual_samples));
+            pixel_color.x = std::sqrt(pixel_color.x);
+            pixel_color.y = std::sqrt(pixel_color.y);
+            pixel_color.z = std::sqrt(pixel_color.z);
+            pixels[pixel_y * width + x] = to_color32(pixel_color);
         }
     }
 }
 
 Vec3 Renderer::trace_ray(const Ray& ray, const Scene& scene, int depth) const {
-    float t_min = 0.001f;
-    float t_max = 1e10f;
-
     if (depth >= max_depth) {
         return Color(0.0f, 0.0f, 0.0f);
     }
 
     HitRecord rec;
-    if (scene.find_closest_hit(ray, t_min, t_max, rec)) {
+    if (scene.find_closest_hit(ray, 0.001f, 1e10f, rec)) {
+        if (rec.material_id >= 0 && rec.material_id < scene.get_material_count()) {
+            const Material& mat = scene.get_material(rec.material_id);
+            Color attenuation;
+            Ray scattered(Point3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 0.0f, 0.0f));
+            
+            Color emitted = mat.emission;
+            
+            if (mat.scatter(ray, rec, attenuation, scattered)) {
+                return emitted + attenuation * trace_ray(scattered, scene, depth + 1);
+            }
+            return emitted;
+        }
+
         Vec3 normal = rec.normal;
         return 0.5f * Color(normal.x + 1.0f, normal.y + 1.0f, normal.z + 1.0f);
     }
