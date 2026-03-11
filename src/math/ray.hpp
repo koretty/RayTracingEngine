@@ -10,5 +10,5 @@ public:
 
     Vec3 getOrigin() const { return origin; }
     Vec3 getDirection() const { return direction; }
-    Vec3 at(double t) const {return origin + t * direction;}
+    Vec3 at(float t) const {return origin + t * direction;}
 };
