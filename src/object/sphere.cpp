@@ -1,24 +1,24 @@
 #include "sphere.hpp"
 #include <cmath>
 
-bool Sphere::hit(const Ray& ray, double t_min, double t_max, HitRecord& rec) const {
+bool Sphere::hit(const Ray& ray, float t_min, float t_max, HitRecord& rec) const {
     Vec3 oc = ray.getOrigin() - center;
-    double c = oc.length_squared() - radius * radius;
-    double half_b = dot(oc, ray.getDirection());
-    if (c > 0.0 && half_b > 0.0) {
+    float c = oc.length_squared() - radius * radius;
+    float half_b = dot(oc, ray.getDirection());
+    if (c > 0.0f && half_b > 0.0f) {
         return false;
     }
 
-    double a = ray.getDirection().length_squared();
-    double discriminant = half_b * half_b - a * c;
+    float a = ray.getDirection().length_squared();
+    float discriminant = half_b * half_b - a * c;
 
-    if (discriminant < 0.0) {
+    if (discriminant < 0.0f) {
         return false;
     }
 
-    double sqrtd = std::sqrt(discriminant);
+    float sqrtd = std::sqrt(discriminant);
 
-    double root = (-half_b - sqrtd) / a;
+    float root = (-half_b - sqrtd) / a;
     if (root <= t_min || t_max <= root) {
         root = (-half_b + sqrtd) / a;
         if (root <= t_min || t_max <= root) {

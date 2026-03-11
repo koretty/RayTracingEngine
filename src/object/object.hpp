@@ -7,7 +7,7 @@
 struct HitRecord {
     Point3 point;
     Vec3 normal;
-    double t;
+    float t;
     int material_id;
 };
 
@@ -16,7 +16,7 @@ protected:
     int material_id;
 public:
     Object(int mat_id) : material_id(mat_id) {}
-    virtual bool hit(const Ray& ray, double t_min, double t_max, HitRecord& rec) const = 0;
+    virtual bool hit(const Ray& ray, float t_min, float t_max, HitRecord& rec) const = 0;
     virtual ~Object() = default;
 
     int getMaterialId() const { return material_id; }
