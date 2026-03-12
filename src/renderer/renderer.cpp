@@ -1,6 +1,7 @@
 #include "renderer.hpp"
 #include "../math/math_utils.hpp"
 #include <cmath>
+#include <omp.h>
 
 Renderer::Renderer(int width, int height, int samples_per_pixel, int max_depth) : width(width), height(height), samples_per_pixel(samples_per_pixel), max_depth(max_depth){
     pixels.resize(width * height);
@@ -9,6 +10,9 @@ Renderer::Renderer(int width, int height, int samples_per_pixel, int max_depth) 
 void Renderer::render(const Scene& scene, const Camera& camera) {
     int grid_size = static_cast<int>(std::sqrt(samples_per_pixel));
     int actual_samples = grid_size * grid_size;
+    
+
+    #pragma omp parallel for schedule(dynamic)
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
             Color color(0.0f, 0.0f, 0.0f);
