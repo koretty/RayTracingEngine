@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../math/ray.hpp"
+#include "../math/math_utils.hpp"
 #include <cmath>
 #include <numbers>
 
@@ -16,7 +17,16 @@ class Camera {
     float fov_deg;
     float aspect_ratio;
     float aperture;
+    float lens_radius;
     float focus_dist;
+
+    static Vec3 random_in_unit_disk() {
+        while (true) {
+            Vec3 p(random_float(-1.0f, 1.0f), random_float(-1.0f, 1.0f), 0.0f);
+            if (p.length_squared() >= 1.0f) continue;
+            return p;
+        }
+    }
 public:
     Camera(
         const Point3& origin,
@@ -32,6 +42,7 @@ public:
     fov_deg(fov_deg), 
     aspect_ratio(aspect_ratio), 
     aperture(aperture), 
+    lens_radius(aperture * 0.5f),
     focus_dist(focus_dist){
         front = unit_vector(lookat - origin);
         right = unit_vector(cross(front, view_up));
@@ -43,6 +54,11 @@ public:
     }
 
     Ray get_ray(float u, float v) const {
-        return Ray(origin, lower_left_corner + u * viewport_h * right + v * viewport_v * up - origin);
+        Vec3 rd = lens_radius * random_in_unit_disk();
+        Vec3 offset = right * rd.x + up * rd.y;
+
+        Point3 ray_origin = origin + offset;
+        Point3 pixel_on_focus_plane = lower_left_corner + u * viewport_h * right + v * viewport_v * up;
+        return Ray(ray_origin, pixel_on_focus_plane - ray_origin);
     }
 };
