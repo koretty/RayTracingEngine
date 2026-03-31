@@ -25,7 +25,7 @@ inline Scene create_scene() {
     sc.add_object(std::make_unique<Sphere>(Point3(spacing,  0.5f, -1.0f), 0.5f, 3));
 
     sc.set_sun_direction(Vec3(-0.6f, -1.0f, -0.4f));
-    sc.set_sun_intensity(1.5f);
+    sc.set_sun_intensity(0.5f);
     sc.set_sun_color(Color(1.00f, 0.97f, 0.88f));
 
     return sc;
