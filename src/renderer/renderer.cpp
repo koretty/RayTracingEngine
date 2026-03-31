@@ -43,6 +43,43 @@ void Renderer::render(const Scene& scene, const Camera& camera) {
     }
 }
 
+Vec3 Renderer::evaluate_shadow_transmittance(const Scene& scene, const Ray& shadow_ray) const {
+    constexpr float kShadowTMin = 0.001f;
+    constexpr float kShadowTMax = 1e10f;
+    constexpr float kShadowStepEpsilon = 0.001f;
+    constexpr int kMaxShadowHits = 64;
+
+    Color transmittance(1.0f, 1.0f, 1.0f);
+    Ray current_ray = shadow_ray;
+
+    for (int i = 0; i < kMaxShadowHits; ++i) {
+        HitRecord shadow_rec;
+        if (!scene.find_closest_hit(current_ray, kShadowTMin, kShadowTMax, shadow_rec)) {
+            break;
+        }
+
+        if (shadow_rec.material_id < 0 || static_cast<size_t>(shadow_rec.material_id) >= scene.get_material_count()) {
+            return Color(0.0f, 0.0f, 0.0f);
+        }
+
+        const Material& blocker = scene.get_material(shadow_rec.material_id);
+        if (blocker.transmission <= 0.0f) {
+            return Color(0.0f, 0.0f, 0.0f);
+        }
+
+        Color pass_through = blocker.base_color * blocker.transmission;
+        transmittance = transmittance * pass_through;
+
+        if (transmittance.x < 0.001f && transmittance.y < 0.001f && transmittance.z < 0.001f) {
+            return Color(0.0f, 0.0f, 0.0f);
+        }
+
+        current_ray = Ray(shadow_rec.point + current_ray.getDirection() * kShadowStepEpsilon, current_ray.getDirection());
+    }
+
+    return transmittance;
+}
+
 Vec3 Renderer::trace_ray(const Ray& ray, const Scene& scene, int depth) const {
     if (depth >= max_depth) {
         return Color(0.0f, 0.0f, 0.0f);
@@ -64,14 +101,11 @@ Vec3 Renderer::trace_ray(const Ray& ray, const Scene& scene, int depth) const {
                 float ndotl = dot(rec.normal, light_dir);
                 if (ndotl > 0.0f) {
                     Ray shadow_ray(rec.point + rec.normal * 0.001f, light_dir);
-                    HitRecord shadow_rec;
-                    bool blocked = scene.find_closest_hit(shadow_ray, 0.001f, 1e10f, shadow_rec);
-                    if (!blocked) {
-                        Color sun_color = scene.get_sun_color();
-                        float sun_intensity = scene.get_sun_intensity();
-                        float diffuse_weight = (1.0f - mat.metallic) * (1.0f - mat.transmission);
-                        direct_sun = mat.base_color * sun_color * (sun_intensity * ndotl * diffuse_weight);
-                    }
+                    Color shadow_visibility = evaluate_shadow_transmittance(scene, shadow_ray);
+                    Color sun_color = scene.get_sun_color();
+                    float sun_intensity = scene.get_sun_intensity();
+                    float diffuse_weight = (1.0f - mat.metallic) * (1.0f - mat.transmission);
+                    direct_sun = mat.base_color * sun_color * (sun_intensity * ndotl * diffuse_weight) * shadow_visibility;
                 }
             }
             
