@@ -1,6 +1,7 @@
 #include "renderer.hpp"
 #include "../math/math_utils.hpp"
 #include <cmath>
+#include <iostream>
 #include <omp.h>
 
 Renderer::Renderer(int width, int height, int samples_per_pixel, int max_depth) : width(width), height(height), samples_per_pixel(samples_per_pixel), max_depth(max_depth){
@@ -8,6 +9,12 @@ Renderer::Renderer(int width, int height, int samples_per_pixel, int max_depth) 
 }
 
 void Renderer::render(const Scene& scene, const Camera& camera) {
+#ifdef _OPENMP
+    std::cout << "[OpenMP] threads: " << omp_get_max_threads() << "\n";
+#else
+    std::cout << "[OpenMP] disabled (single-thread)\n";
+#endif
+
     int grid_size = static_cast<int>(std::sqrt(samples_per_pixel));
     int actual_samples = grid_size * grid_size;
     
@@ -43,7 +50,7 @@ Vec3 Renderer::trace_ray(const Ray& ray, const Scene& scene, int depth) const {
 
     HitRecord rec;
     if (scene.find_closest_hit(ray, 0.001f, 1e10f, rec)) {
-        if (rec.material_id >= 0 && rec.material_id < scene.get_material_count()) {
+        if (rec.material_id >= 0 && static_cast<size_t>(rec.material_id) < scene.get_material_count()) {
             const Material& mat = scene.get_material(rec.material_id);
             Color attenuation;
             Ray scattered(Point3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 0.0f, 0.0f));

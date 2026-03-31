@@ -28,9 +28,8 @@ struct Material {
     ) const {
         if (random_float() < transmission) {
             Vec3 unit_dir = unit_vector(r_in.getDirection());
-            bool front_face = dot(unit_dir, rec.normal) < 0.0f;
-            Vec3 normal = front_face ? rec.normal : -rec.normal;
-            float refraction_ratio = front_face ? (1.0f / ior) : ior;
+            Vec3 normal = rec.normal;
+            float refraction_ratio = rec.front_face ? (1.0f / ior) : ior;
 
             float cos_theta = std::fmin(dot(-unit_dir, normal), 1.0f);
             float sin_theta = std::sqrt(1.0f - cos_theta * cos_theta);

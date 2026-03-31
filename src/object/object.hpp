@@ -9,6 +9,12 @@ struct HitRecord {
     Vec3 normal;
     float t;
     int material_id;
+    bool front_face;
+
+    void set_face_normal(const Ray& ray, const Vec3& outward_normal) {
+        front_face = dot(ray.getDirection(), outward_normal) < 0.0f;
+        normal = front_face ? outward_normal : -outward_normal;
+    }
 };
 
 class Object {

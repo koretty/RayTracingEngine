@@ -5,17 +5,20 @@
 class Vec3{
 public:
 
-    union{
-        struct{float x,y,z;};
-        float e[3];
-    };
+    float x;
+    float y;
+    float z;
 
     Vec3() : x(0), y(0), z(0) {}
     Vec3(float x, float y, float z) : x(x), y(y), z(z) {}
 
     Vec3 operator-() const { return Vec3(-x, -y, -z); }
-    float operator[](int i) const { return e[i]; }
-    float& operator[](int i) { return e[i]; }
+    float operator[](int i) const {
+        return i == 0 ? x : (i == 1 ? y : z);
+    }
+    float& operator[](int i) {
+        return i == 0 ? x : (i == 1 ? y : z);
+    }
 
     Vec3& operator+=(const Vec3& v) {
         x += v.x;
