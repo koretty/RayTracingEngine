@@ -1,40 +1,45 @@
 # Data Flow
 
-データの流れ（入力 → レンダリングループ → 出力）を示します。
+BSDF リファクタ後の主経路（入力 -> サンプリング -> 積分 -> 出力）を示します。
 
-- 入力: SDL イベント（W/S/A/D/U/Y/ESC/P）
-- 前処理: camera_config の状態更新と needs_render フラグ判定
-- 実行主体: main ループが Renderer.render(scene, camera) を呼ぶ
-- サンプリング: 1ピクセルごとにジッター付き複数レイを生成
-- 交差判定: Scene.find_closest_hit() が最短ヒットを返す
-- 散乱計算: Material.scatter() が次レイと減衰を決定
-- 出力: SDL テクスチャ表示、任意で PPM 保存
+- 入力: SDL イベントでカメラ状態を更新
+- レンダリング開始: `Renderer.render(scene, camera)`
+- レイ追跡: `trace_ray` が `Scene.find_closest_hit` を呼ぶ
+- BRDF/BSDF 評価:
+    - 直達光: `bsdf.eval(wo, wi, hit, material)`
+    - 間接光: `bsdf.sample(wo, hit, material)` で次方向を生成
+    - 密度: `bsdf.pdf(...)` は sample 内と将来 MIS 拡張で利用
+- 出力: ガンマ補正後に SDL テクスチャへ転送
 
 ```mermaid
 graph TD
-    A[SDL Event Loop in main.cpp] -->|key input| B[camera_config state update]
-    B -->|moved?| C[needs_render flag]
+        A[SDL Event Loop] --> B[camera_config update]
+        B --> C[needs_render true]
 
-    D[scene_config.create_scene] -->|build once| E[Scene]
-    C -->|true| F[make_camera(width,height)]
-    F --> G[Renderer.render(Scene, Camera)]
+        D[scene_config create_scene] --> E[Scene]
+        C --> F[make_camera]
+        F --> G[Renderer.render]
 
-    G --> H[OpenMP parallel pixel loop]
-    H --> I[Multi-sample camera.get_ray(u,v)]
-    I --> J[trace_ray(ray, scene, depth)]
-    J --> K[Scene.find_closest_hit]
-    K -->|hit| L[Material.scatter + direct sun]
-    K -->|miss| M[Scene.background]
-    L --> J
-    M --> N[accumulate and gamma-correct]
-    J --> N
+        G --> H[OpenMP pixel loop]
+        H --> I[camera.get_ray]
+        I --> J[trace_ray(ray, scene, depth)]
 
-    N --> O[pixels buffer (ARGB8888)]
-    O --> P[SDL_UpdateTexture]
-    P --> Q[SDL_RenderPresent]
+        J --> K[Scene.find_closest_hit]
+        K -->|miss| L[Scene.background]
+        K -->|hit| M[Fetch Material by id]
 
-    A -->|P key| R[save_image -> render_output.ppm]
-    O --> R
+        M --> N[Direct sun via bsdf.eval]
+        M --> O[Indirect bounce via bsdf.sample]
+        O --> P[Spawn next ray]
+        P --> J
+
+        N --> Q[Combine emission + direct + indirect]
+        L --> Q
+        J --> Q
+
+        Q --> R[Gamma correction]
+        R --> S[pixels buffer]
+        S --> T[SDL_UpdateTexture / Present]
 ```
 
-実運用の主経路は main ループ → Renderer → Scene/Material です。PPM保存は補助的な出力経路です。
+旧設計と異なり、`Material.scatter` は存在せず、サンプリング責務は `IBSDF` に統一されています。
