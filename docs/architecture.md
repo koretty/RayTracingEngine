@@ -12,13 +12,16 @@
 ## モジュール責務
 
 - `src/material/material.hpp`
-    - データクラス（`base_color`, `metallic`, `roughness`, `transmission`, `ior`, `emission`）のみ。
+    - データクラス（`base_color`, `metallic`, `roughness`, `transmission`, `ior`, `absorption_coefficient`, `emission`）のみ。
+- `src/material/optics.hpp`
+    - Beer-Lambert の体積透過 $T(d)=\exp(-\sigma_a d)$ を提供する光学補助関数。
 - `src/bsdf/bsdf.hpp`
     - 抽象インターフェース `IBSDF` とサンプリング結果 `BsdfSample` を定義。
 - `src/bsdf/pbr_bsdf.{hpp,cpp}`
     - 単一 BSDF 内で Lambert 拡散 + GGX マイクロファセット鏡面 + transmission/ior を統合。
 - `src/renderer/renderer.{hpp,cpp}`
-    - `trace_ray` で `IBSDF::sample/eval/pdf` を利用。マテリアル内部ロジックには非依存。
+    - `trace_ray` で `IBSDF::sample/eval/pdf` を利用。
+    - 影評価では交差の入出点から厚みを求め、Beer-Lambert で透過光を減衰。
 - `src/scene`, `src/object`, `src/math`
     - 幾何・交差判定・数学基盤を提供し、BSDF と独立に保守可能。
 
@@ -40,6 +43,9 @@
     - $D$: GGX NDF, $G$: Smith (Schlick-GGX), $F$: Schlick Fresnel
 - Transmission: dielectric refraction
     - `transmission` と `ior` を使って屈折方向をサンプリングし、全反射時は反射へフォールバック
+- Volume attenuation: Beer-Lambert
+    - 透明物の内部厚み $d$ に対して $T(d)=\exp(-\sigma_a d)$ を適用
+    - $\sigma_a$ は `absorption_coefficient`（RGBの吸収係数）
 
 ここで $m$ は metallic、$t$ は transmission。
 

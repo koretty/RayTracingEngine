@@ -7,6 +7,7 @@ BSDF リファクタ後の主経路（入力 -> サンプリング -> 積分 -> 
 - レイ追跡: `trace_ray` が `Scene.find_closest_hit` を呼ぶ
 - BRDF/BSDF 評価:
     - 直達光: `bsdf.eval(wo, wi, hit, material)`
+    - 影透過: 透明物の入出点厚みを計測し Beer-Lambert で減衰
     - 間接光: `bsdf.sample(wo, hit, material)` で次方向を生成
     - 密度: `bsdf.pdf(...)` は sample 内と将来 MIS 拡張で利用
 - 出力: ガンマ補正後に SDL テクスチャへ転送
@@ -29,11 +30,13 @@ graph TD
         K -->|hit| M[Fetch Material by id]
 
         M --> N[Direct sun via bsdf.eval]
+        M --> V[Shadow transmittance via Beer-Lambert]
         M --> O[Indirect bounce via bsdf.sample]
         O --> P[Spawn next ray]
         P --> J
 
         N --> Q[Combine emission + direct + indirect]
+        V --> Q
         L --> Q
         J --> Q
 

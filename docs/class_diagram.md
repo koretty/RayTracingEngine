@@ -8,7 +8,12 @@ classDiagram
         +float roughness
         +float transmission
         +float ior
+        +Color absorption_coefficient
         +Color emission
+    }
+
+    class MaterialOptics {
+        +beer_lambert_transmittance(material, distance) Color
     }
 
     class BsdfSample {
@@ -64,6 +69,7 @@ classDiagram
     Sphere --|> Object
     IBSDF --> Material : evaluates parameters
     IBSDF --> BsdfSample : returns
+    Renderer --> MaterialOptics : uses for shadow attenuation
 ```
 
 ポイント:

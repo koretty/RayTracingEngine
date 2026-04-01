@@ -13,9 +13,9 @@ inline Scene create_scene() {
     sc.set_background(Color(0.60f, 0.80f, 1.00f));
 
     Material ground;
-    ground.base_color = Color(0.8f, 0.8f, 0.75f);
+    ground.base_color = Color(0.33f, 0.52f, 0.28f);
     ground.metallic = 0.0f;
-    ground.roughness = 0.9f;
+    ground.roughness = 0.97f;
 
     Material brushed_metal;
     brushed_metal.base_color = Color(0.9f, 0.85f, 0.8f);
@@ -28,6 +28,7 @@ inline Scene create_scene() {
     glass.roughness = 0.02f;
     glass.transmission = 1.0f;
     glass.ior = 1.5f;
+    glass.absorption_coefficient = Color(5.0f, 5.0f, 10.0f);
 
     Material red_matte;
     red_matte.base_color = Color(0.9f, 0.2f, 0.2f);

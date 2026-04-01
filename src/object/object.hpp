@@ -9,6 +9,7 @@ struct HitRecord {
     Vec3 normal;
     float t;
     int material_id;
+    int object_id{-1};
     bool front_face;
 
     void set_face_normal(const Ray& ray, const Vec3& outward_normal) {

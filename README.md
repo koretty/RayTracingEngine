@@ -15,6 +15,7 @@
 * OpenMP `schedule(dynamic)` による並列レンダリングで、測定環境にて約5.1倍の高速化を確認
 * SDL3ウィンドウ上で即時プレビューしながら、WASD + U/Yのカメラ移動と再レンダリングを実行
 * `sample / eval / pdf` を分離した PBR ベース BSDF（Lambert + GGX + transmission/ior）
+* ガラス影に Beer-Lambert（厚み依存吸収）を導入し、浮いて見える透過物の不自然さを低減
 * `math` / `scene` / `object` / `material` / `bsdf` / `renderer` の分離により、機能追加や差し替えがしやすい構成
 
 ---
@@ -84,6 +85,11 @@ g++ -std=c++20 -O2 -fopenmp \
     "aperture": 0.1,
     "move_speed": 0.5
   },
+  "glass_material": {
+    "transmission": 1.0,
+    "ior": 1.5,
+    "absorption_coefficient": [0.35, 0.10, 0.06]
+  },
   "render": {
     "width": 800,
     "height": 600,
@@ -102,7 +108,7 @@ g++ -std=c++20 -O2 -fopenmp \
 | Category       | Technology              | Reason |
 | :------------- | :---------------------- | :----- |
 | Frontend       | SDL3 Window             | 軽量な描画ウィンドウを構築し、レンダリング結果を即時表示できる |
-| Backend        | C++23                   | 高速な数値計算と明確な型設計でレイトレーシング実装に適している |
+| Backend        | C++20                   | 高速な数値計算と明確な型設計でレイトレーシング実装に適している |
 | Database       | -                       | オフライン描画ツールのため永続DBは不要 |
 | Infrastructure | OpenMP (CPU並列処理)    | ピクセル計算を並列化してレンダリング時間を短縮できる |
 
@@ -122,7 +128,7 @@ g++ -std=c++20 -O2 -fopenmp \
 │   │       ├── camera_config.hpp
 │   │       └── scene_config.hpp
 │   ├── math/                # ベクトル・Ray・乱数などの数学基盤
-│   ├── material/            # マテリアルのパラメータデータ
+│   ├── material/            # マテリアルのパラメータと光学補助（Beer-Lambert）
 │   ├── bsdf/                # BSDF抽象とPBR実装（Lambert + GGX + transmission）
 │   ├── object/              # オブジェクト抽象と球体実装
 │   ├── scene/               # シーンとカメラ
