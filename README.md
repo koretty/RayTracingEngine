@@ -6,7 +6,7 @@
 
 ## Overview
 
-3Dレンダリング技術に興味を持ったことをきっかけに、レイトレーシングの仕組みを理解するための実装を行いました。既存の学習コードは単発で画像を出すものが多く、全体の流れがつかみにくいと感じたため、数学的な基礎からレンダラーまでを段階的に整理しながらC++23で実装しています。
+3Dレンダリング技術に興味を持ったことをきっかけに、レイトレーシングの仕組みを理解するための実装を行いました。既存の学習コードは単発で画像を出すものが多く、全体の流れがつかみにくいと感じたため、数学的な基礎からレンダラーまでを段階的に整理しながら C++20 で実装しています。
 
 競合的なサンプル実装との差別化ポイントは、OpenMPによる並列化やSIMD最適化を前提とした設計にあります。特に、データ構造を `Array of Structures of Arrays` とすることで、ベクトル化と並列化の両方を効率よく適用できるようにしています。これにより、単なる学習用途にとどまらず、実際に動作する最適化手法を同一コードベースで検証できる構成としています。
 
@@ -14,7 +14,8 @@
 
 * OpenMP `schedule(dynamic)` による並列レンダリングで、測定環境にて約5.1倍の高速化を確認
 * SDL3ウィンドウ上で即時プレビューしながら、WASD + U/Yのカメラ移動と再レンダリングを実行
-* `math` / `scene` / `object` / `material` / `renderer` の分離により、機能追加や差し替えがしやすい構成
+* `sample / eval / pdf` を分離した PBR ベース BSDF（Lambert + GGX + transmission/ior）
+* `math` / `scene` / `object` / `material` / `bsdf` / `renderer` の分離により、機能追加や差し替えがしやすい構成
 
 ---
 
@@ -32,7 +33,7 @@
 
 ### Requirements
 
-* 言語 / ランタイム: C++23
+* 言語 / ランタイム: C++20
 * 必要ツール: GCC (MinGW) 15.x 以上、SDL3開発ライブラリ、OpenMP対応コンパイラ
 * 推奨環境: Windows 11 (x64)
 
@@ -47,14 +48,15 @@ cd raytracing-engine
 ### Run
 
 ```bash
-g++ -std=c++23 -O2 -fopenmp \
+g++ -std=c++20 -O2 -fopenmp \
   src/main/main.cpp \
   src/renderer/renderer.cpp \
   src/scene/scene.cpp \
   src/object/sphere.cpp \
-  -o raytracing-engine -lSDL3
+  src/bsdf/pbr_bsdf.cpp \
+  -o raytracer.exe -lSDL3
 
-./raytracing-engine
+./raytracer.exe
 ```
 
 ---
@@ -120,7 +122,8 @@ g++ -std=c++23 -O2 -fopenmp \
 │   │       ├── camera_config.hpp
 │   │       └── scene_config.hpp
 │   ├── math/                # ベクトル・Ray・乱数などの数学基盤
-│   ├── material/            # マテリアル定義と散乱計算
+│   ├── material/            # マテリアルのパラメータデータ
+│   ├── bsdf/                # BSDF抽象とPBR実装（Lambert + GGX + transmission）
 │   ├── object/              # オブジェクト抽象と球体実装
 │   ├── scene/               # シーンとカメラ
 │   └── renderer/            # レンダリング本体

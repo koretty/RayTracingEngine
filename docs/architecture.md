@@ -1,100 +1,50 @@
 # Architecture Overview
 
-このリポジトリは、SDL3 でのリアルタイム表示ループを入口に、CPU パストレーシングを実行する学習向けレイトレーシングエンジンです。
+このプロジェクトは、マテリアル散乱を `scatter` 関数から分離し、`BSDF` インターフェースを中心に統一 PBR モデルへ再構成した CPU レイトレーサです。
 
-## モジュール一覧と役割
+## 設計目標
 
-- src/main/main.cpp: SDL 初期化、イベントループ、カメラ移動入力、レンダリング再実行トリガ、PPM保存を管理。
-- src/main/config/camera_config.hpp: カメラ位置・視点・FOV・絞り・移動速度と Camera 生成ロジック。
-- src/main/config/scene_config.hpp: シーン構築（背景、太陽光、マテリアル、球体オブジェクト配置）。
-- src/renderer/renderer.{hpp,cpp}: ピクセル走査、サンプリング、OpenMP 並列化、再帰的な trace_ray による色計算。
-- src/scene/scene.{hpp,cpp}: Object 群と Material 群の保持、最短交差判定、環境光/太陽光パラメータ提供。
-- src/scene/camera.hpp: レンズ半径と焦点距離を使ったレイ生成（被写界深度対応）。
-- src/object/object.hpp: 交差判定インターフェースと HitRecord の定義。
-- src/object/sphere.{hpp,cpp}: 球体のレイ交差判定を実装。
-- src/material/material.hpp: 拡散/金属/透過（屈折）散乱と発光、簡易 Fresnel 反射率。
-- src/math/{vec3,ray,math_utils}.hpp: ベクトル演算、Ray、乱数とサンプリング補助。
+- 疎結合: `Renderer` は `IBSDF` 抽象のみを知り、具体実装 (`PbrBsdf`) には依存しない。
+- 高凝集: `Material` はパラメータ保持に限定し、散乱ロジックは `bsdf` モジュールに集約。
+- 拡張性: `sample / eval / pdf` 契約を守る BSDF 実装を追加するだけで新 BRDF/BSDF を導入可能。
+- テスト容易性: BSDF 計算を独立モジュール化し、レンダラー外での数値検証を可能にする。
 
-## 設計原則
+## モジュール責務
 
-- 責務分離: math / object / material / scene / renderer / main-config を分離し、学習しやすい最小単位で拡張可能にする。
-- 描画モデル: 1ピクセルあたり複数サンプルを取り、trace_ray の再帰で間接光を近似する CPU パストレーシング。
-- 対話性: 入力があった時のみ再レンダリングするフラグ駆動ループで、操作感と処理負荷のバランスを取る。
-- 実用速度: OpenMP schedule(dynamic) による scanline 並列化を採用。
+- `src/material/material.hpp`
+    - データクラス（`base_color`, `metallic`, `roughness`, `transmission`, `ior`, `emission`）のみ。
+- `src/bsdf/bsdf.hpp`
+    - 抽象インターフェース `IBSDF` とサンプリング結果 `BsdfSample` を定義。
+- `src/bsdf/pbr_bsdf.{hpp,cpp}`
+    - 単一 BSDF 内で Lambert 拡散 + GGX マイクロファセット鏡面 + transmission/ior を統合。
+- `src/renderer/renderer.{hpp,cpp}`
+    - `trace_ray` で `IBSDF::sample/eval/pdf` を利用。マテリアル内部ロジックには非依存。
+- `src/scene`, `src/object`, `src/math`
+    - 幾何・交差判定・数学基盤を提供し、BSDF と独立に保守可能。
 
-## クラス図（概要）
+## BSDF 契約
 
-```mermaid
-classDiagram
-    class Vec3 {
-        +float x
-        +float y
-        +float z
-        +length()
-        +length_squared()
-        +near_zero()
-    }
+- `sample(wo, hit, material)`
+    - 次方向 `wi` をサンプルし、再帰寄与重み `weight` を返す。
+- `eval(wo, wi, hit, material)`
+    - 与えた方向対の BSDF 値を返す（主に direct lighting で使用）。
+- `pdf(wo, wi, hit, material)`
+    - サンプル分布の確率密度を返す（MIS や検証に利用可能）。
 
-    class Ray {
-        +getOrigin()
-        +getDirection()
-        +at(t)
-    }
+## PBR モデル
 
-    class Camera {
-        +get_ray(u, v)
-    }
+- Diffuse: Lambert
+    - $f_d = \frac{(1-t)(1-m)\,\mathrm{base\_color}}{\pi}$
+- Specular: GGX (Trowbridge-Reitz)
+    - $f_s = (1-t)\frac{D\,G\,F}{4(n\cdot wo)(n\cdot wi)}$
+    - $D$: GGX NDF, $G$: Smith (Schlick-GGX), $F$: Schlick Fresnel
+- Transmission: dielectric refraction
+    - `transmission` と `ior` を使って屈折方向をサンプリングし、全反射時は反射へフォールバック
 
-    class HitRecord {
-        +Point3 point
-        +Vec3 normal
-        +float t
-        +int material_id
-    }
+ここで $m$ は metallic、$t$ は transmission。
 
-    class Object {
-        <<abstract>>
-        +hit(ray, t_min, t_max, rec)
-    }
+## なぜ疎結合か
 
-    class Sphere {
-        +hit(ray, t_min, t_max, rec)
-    }
-
-    class Material {
-        +Color base_color
-        +float metallic
-        +float roughness
-        +float transmission
-        +float ior
-        +Color emission
-        +scatter(r_in, rec, attenuation, scattered)
-    }
-
-    class Scene {
-        +add_object(object)
-        +add_material(mat)
-        +find_closest_hit(ray, t_min, t_max, rec)
-        +get_background()
-        +get_sun_direction()
-    }
-
-    class Renderer {
-        +render(scene, camera)
-        +get_pixels()
-        -trace_ray(ray, scene, depth)
-        -to_color32(color)
-    }
-
-    Sphere --|> Object
-    Scene --> Object : owns
-    Scene --> Material : owns
-    Renderer --> Scene : samples
-    Renderer --> Camera : casts rays
-    Renderer --> Ray : traces
-    Material --> Ray : scatters
-    Material --> HitRecord : reads hit info
-    Object --> HitRecord : writes
-    Camera --> Vec3 : uses basis vectors
-    Ray --> Vec3
-```
+- `Renderer` は `IBSDF` だけに依存しているため、`PbrBsdf` を `DisneyBsdf` や `OrenNayarBsdf` に交換してもレンダラー改修が不要。
+- `Material` は純粋データなので、将来テクスチャ入力を加える場合も `Material` の供給層と BSDF 評価層を独立に発展できる。
+- CMake では `raytracer_core` ライブラリ化を行い、レンダリング本体とエントリーポイント (`main`) を分離してテスト導入を容易化。

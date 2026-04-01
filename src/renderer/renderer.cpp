@@ -1,12 +1,28 @@
 #include "renderer.hpp"
+#include "../bsdf/bsdf.hpp"
+#include "../bsdf/pbr_bsdf.hpp"
 #include "../math/math_utils.hpp"
 #include <cmath>
 #include <iostream>
 #include <omp.h>
 
-Renderer::Renderer(int width, int height, int samples_per_pixel, int max_depth) : width(width), height(height), samples_per_pixel(samples_per_pixel), max_depth(max_depth){
+Renderer::Renderer(int width, int height, int samples_per_pixel, int max_depth)
+    : Renderer(width, height, samples_per_pixel, max_depth, std::make_unique<PbrBsdf>()) {
+}
+
+Renderer::Renderer(int width, int height, int samples_per_pixel, int max_depth, std::unique_ptr<IBSDF> bsdf_impl)
+    : width(width),
+      height(height),
+      samples_per_pixel(samples_per_pixel),
+      max_depth(max_depth),
+      bsdf(std::move(bsdf_impl)) {
+    if (!bsdf) {
+        bsdf = std::make_unique<PbrBsdf>();
+    }
     pixels.resize(width * height);
 }
+
+Renderer::~Renderer() = default;
 
 void Renderer::render(const Scene& scene, const Camera& camera) {
 #ifdef _OPENMP
@@ -89,28 +105,27 @@ Vec3 Renderer::trace_ray(const Ray& ray, const Scene& scene, int depth) const {
     if (scene.find_closest_hit(ray, 0.001f, 1e10f, rec)) {
         if (rec.material_id >= 0 && static_cast<size_t>(rec.material_id) < scene.get_material_count()) {
             const Material& mat = scene.get_material(rec.material_id);
-            Color attenuation;
-            Ray scattered(Point3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 0.0f, 0.0f));
-            
+
             Color emitted = mat.emission;
             Color direct_sun(0.0f, 0.0f, 0.0f);
+            Vec3 wo = -unit_vector(ray.getDirection());
 
             Vec3 sun_dir = scene.get_sun_direction();
             if (!sun_dir.near_zero()) {
-                Vec3 light_dir = -sun_dir;
-                float ndotl = dot(rec.normal, light_dir);
-                if (ndotl > 0.0f) {
-                    Ray shadow_ray(rec.point + rec.normal * 0.001f, light_dir);
+                Vec3 wi = -unit_vector(sun_dir);
+                float n_dot_l = dot(rec.normal, wi);
+                if (n_dot_l > 0.0f) {
+                    Ray shadow_ray(rec.point + rec.normal * 0.001f, wi);
                     Color shadow_visibility = evaluate_shadow_transmittance(scene, shadow_ray);
-                    Color sun_color = scene.get_sun_color();
-                    float sun_intensity = scene.get_sun_intensity();
-                    float diffuse_weight = (1.0f - mat.metallic) * (1.0f - mat.transmission);
-                    direct_sun = mat.base_color * sun_color * (sun_intensity * ndotl * diffuse_weight) * shadow_visibility;
+                    Color f = bsdf->eval(wo, wi, rec, mat);
+                    direct_sun = f * scene.get_sun_color() * (scene.get_sun_intensity() * n_dot_l) * shadow_visibility;
                 }
             }
-            
-            if (mat.scatter(ray, rec, attenuation, scattered)) {
-                return emitted + direct_sun + attenuation * trace_ray(scattered, scene, depth + 1);
+
+            BsdfSample sampled = bsdf->sample(wo, rec, mat);
+            if (sampled.valid) {
+                Ray next_ray(rec.point + sampled.wi * 0.001f, sampled.wi);
+                return emitted + direct_sun + sampled.weight * trace_ray(next_ray, scene, depth + 1);
             }
             return emitted + direct_sun;
         }
