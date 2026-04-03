@@ -177,7 +177,7 @@ Vec3 Renderer::trace_ray(const Ray& ray, const Scene& scene, int depth) const {
         return 0.5f * Color(normal.x + 1.0f, normal.y + 1.0f, normal.z + 1.0f);
     }
 
-    return scene.get_background();
+    return scene.sample_environment(ray.getDirection());
 }
 
 uint32_t Renderer::to_color32(const Vec3& color) const {

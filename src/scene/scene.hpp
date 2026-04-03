@@ -1,9 +1,11 @@
 #pragma once
 #include <vector>
 #include <memory>
+#include <utility>
 #include "../math/ray.hpp"      
 #include "../object/object.hpp"
 #include "../material/material.hpp"
+#include "../environment/environment_map.hpp"
 
 class Scene {
 public:
@@ -16,6 +18,21 @@ public:
         materials.push_back(mat);
     }
     void set_background(const Color& bg) { background = bg; }
+    void set_environment_map(EnvironmentMap environment) {
+        has_environment = environment.is_valid();
+        environment_map = std::move(environment);
+    }
+    void clear_environment_map() {
+        environment_map = EnvironmentMap();
+        has_environment = false;
+    }
+    bool has_environment_map() const { return has_environment; }
+    Color sample_environment(const Vec3& direction) const {
+        if (has_environment) {
+            return environment_map.sample(direction);
+        }
+        return background;
+    }
     void set_sun_direction(const Vec3& dir) {
         if (dir.near_zero()) {
             return;
@@ -40,6 +57,8 @@ private:
     std::vector<std::unique_ptr<Object>> objects;
     std::vector<Material> materials;
     Color background = {0.2f, 0.7f, 0.8f};
+    EnvironmentMap environment_map;
+    bool has_environment{false};
     Vec3 sun_direction = unit_vector(Vec3(-1.0f, -1.0f, -1.0f));
     float sun_intensity = 1.8f;
     Color sun_color = Color(1.0f, 0.97f, 0.92f);

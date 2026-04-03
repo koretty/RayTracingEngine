@@ -3,8 +3,19 @@
 #include "../../scene/scene.hpp"
 #include "../../material/material.hpp"
 #include "../../object/sphere.hpp"
+#include "../../environment/environment_map.hpp"
+#include <iostream>
+#include <utility>
 
 namespace config {
+namespace environment {
+
+inline bool enabled = false;
+inline const char* hdr_path = "img/environment.hdr";
+inline float intensity = 1.0f;
+
+}
+
 namespace scene {
 
 inline Scene create_scene() {
@@ -50,6 +61,16 @@ inline Scene create_scene() {
     sc.set_sun_direction(Vec3(-0.6f, -1.0f, -0.4f));
     sc.set_sun_intensity(0.5f);
     sc.set_sun_color(Color(1.00f, 0.97f, 0.88f));
+
+    if (environment::enabled) {
+        EnvironmentMap env;
+        if (env.load_hdr(environment::hdr_path)) {
+            env.set_intensity(environment::intensity);
+            sc.set_environment_map(std::move(env));
+        } else {
+            std::cerr << "[EnvironmentMap] Failed to load HDRI: " << environment::hdr_path << "\n";
+        }
+    }
 
     return sc;
 }
