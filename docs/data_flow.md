@@ -1,48 +1,58 @@
 # Data Flow
 
-BSDF リファクタ後の主経路（入力 -> サンプリング -> 積分 -> 出力）を示します。
+現在実装されている主経路（初期化 -> レンダリング -> 表示）を示します。
 
-- 入力: SDL イベントでカメラ状態を更新
-- レンダリング開始: `Renderer.render(scene, camera)`
-- レイ追跡: `trace_ray` が `Scene.find_closest_hit` を呼ぶ
-- BRDF/BSDF 評価:
-    - 直達光: `bsdf.eval(wo, wi, hit, material)`
-    - 影透過: 透明物の入出点厚みを計測し Beer-Lambert で減衰
-    - 間接光: `bsdf.sample(wo, hit, material)` で次方向を生成
-    - 密度: `bsdf.pdf(...)` は sample 内と将来 MIS 拡張で利用
-- 出力: ガンマ補正後に SDL テクスチャへ転送
+- 初期化:
+    - `config::scene::create_scene()` がマテリアル・オブジェクト・太陽光を設定
+    - `environment.enabled == true` の場合に HDRI をロード
+- レンダリング:
+    - `Renderer::render(scene, camera)` が OpenMP で画素ループ
+    - 1 サンプルごとに `trace_ray` を再帰実行
+- hit 時:
+    - `bsdf.eval` で直達太陽光
+    - `evaluate_shadow_transmittance` で Beer-Lambert 減衰
+    - `bsdf.sample` で次方向を生成して再帰
+- miss 時:
+    - `Scene::sample_environment(direction)` を呼び、HDRI または背景色を返す
+- 出力:
+    - ガンマ補正後に SDL テクスチャへ転送
 
 ```mermaid
 graph TD
-        A[SDL Event Loop] --> B[camera_config update]
-        B --> C[needs_render true]
+        A[App start] --> B[create_scene]
+        B --> C{environment.enabled}
+        C -->|true| D[EnvironmentMap.load_hdr]
+        C -->|false| E[use background color]
+        D --> F[Scene.set_environment_map]
+        E --> G[Scene ready]
+        F --> G
 
-        D[scene_config create_scene] --> E[Scene]
-        C --> F[make_camera]
-        F --> G[Renderer.render]
+        H[SDL event loop] --> I[camera_config update]
+        I --> J[needs_render true]
+        J --> K[make_camera]
+        K --> L[Renderer.render]
 
-        G --> H[OpenMP pixel loop]
-        H --> I[camera.get_ray]
-        I --> J[trace_ray(ray, scene, depth)]
+        L --> M[OpenMP pixel loop]
+        M --> N[camera.get_ray]
+        N --> O[trace_ray]
 
-        J --> K[Scene.find_closest_hit]
-        K -->|miss| L[Scene.background]
-        K -->|hit| M[Fetch Material by id]
+        O --> P[Scene.find_closest_hit]
+        P -->|hit| Q[material fetch]
+        P -->|miss| R[Scene.sample_environment]
 
-        M --> N[Direct sun via bsdf.eval]
-        M --> V[Shadow transmittance via Beer-Lambert]
-        M --> O[Indirect bounce via bsdf.sample]
-        O --> P[Spawn next ray]
-        P --> J
+        Q --> S[bsdf.eval direct sun]
+        Q --> T[evaluate_shadow_transmittance]
+        Q --> U[bsdf.sample indirect bounce]
+        U --> O
 
-        N --> Q[Combine emission + direct + indirect]
-        V --> Q
-        L --> Q
-        J --> Q
-
-        Q --> R[Gamma correction]
-        R --> S[pixels buffer]
-        S --> T[SDL_UpdateTexture / Present]
+        S --> V[accumulate radiance]
+        T --> V
+        R --> V
+        V --> W[gamma correction]
+        W --> X[pixel buffer]
+        X --> Y[SDL_UpdateTexture and Present]
 ```
 
-旧設計と異なり、`Material.scatter` は存在せず、サンプリング責務は `IBSDF` に統一されています。
+補足:
+
+- `bsdf.pdf` は現在 `sample` 内の重み計算に利用され、将来の MIS 拡張にも使える形になっています。

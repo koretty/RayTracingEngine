@@ -1,152 +1,126 @@
 # RayTracingEngine
 
-> C++でレイトレーシングを本質から学びたい開発者向けに、OpenMP並列化で実用速度まで引き上げた学習特化レンダリングエンジン。
-
----
+CPU ベースの学習向けパストレーサーです。C++20 で、PBR BSDF・透過影の Beer-Lambert・任意 HDRI 環境光を段階的に検証できる構成になっています。
 
 ## Overview
 
-3Dレンダリング技術に興味を持ったことをきっかけに、レイトレーシングの仕組みを理解するための実装を行いました。既存の学習コードは単発で画像を出すものが多く、全体の流れがつかみにくいと感じたため、数学的な基礎からレンダラーまでを段階的に整理しながら C++20 で実装しています。
+このプロジェクトは、数学基盤からレンダラーまでを小さなモジュールに分けて実装しています。`Renderer` は `IBSDF` 抽象に依存し、`Material` はパラメータ保持に限定されるため、BSDF 実装の差し替えと拡張がしやすい設計です。
 
-競合的なサンプル実装との差別化ポイントは、OpenMPによる並列化やSIMD最適化を前提とした設計にあります。特に、データ構造を `Array of Structures of Arrays` とすることで、ベクトル化と並列化の両方を効率よく適用できるようにしています。これにより、単なる学習用途にとどまらず、実際に動作する最適化手法を同一コードベースで検証できる構成としています。
+## Implemented Features
 
-### Features
-
-* OpenMP `schedule(dynamic)` による並列レンダリングで、測定環境にて約5.1倍の高速化を確認
-* SDL3ウィンドウ上で即時プレビューしながら、WASD + U/Yのカメラ移動と再レンダリングを実行
-* `sample / eval / pdf` を分離した PBR ベース BSDF（Lambert + GGX + transmission/ior）
-* ガラス影に Beer-Lambert（厚み依存吸収）を導入し、浮いて見える透過物の不自然さを低減
-* `math` / `scene` / `object` / `material` / `bsdf` / `renderer` の分離により、機能追加や差し替えがしやすい構成
-
----
+- OpenMP によるピクセル並列レンダリング（`#pragma omp parallel for schedule(dynamic)`）
+- SDL3 ウィンドウへの即時表示と、カメラ移動時の再レンダリング
+- `sample / eval / pdf` 契約を持つ PBR BSDF（Lambert + GGX + transmission + ior）
+- Beer-Lambert による透過影の厚み依存吸収
+- 環境マップによる HDRI サンプリング（Radiance RGBE RLE 形式）
+- レイ miss 時に環境マップまたは背景色を返す環境光経路
 
 ## Demo
 
 ![Demo](img/test_output1.png)
 
-
-
----
-
-## Quick Start
-
-最短で動作確認するため、単一コマンドでビルドして実行できます。
+## Build And Run
 
 ### Requirements
 
-* 言語 / ランタイム: C++20
-* 必要ツール: GCC (MinGW) 15.x 以上、SDL3開発ライブラリ、OpenMP対応コンパイラ
-* 推奨環境: Windows 11 (x64)
+- C++20 対応コンパイラ
+- g++（MinGW/GCC）
+- SDL3 開発ライブラリ
+- OpenMP（任意。未検出時はシングルスレッド）
 
-### Installation
+### Build
 
 ```bash
 git clone https://github.com/koretty/raytracing-engine
 cd raytracing-engine
 
+g++ -std=c++20 -O2 -fopenmp \
+	src/main/main.cpp \
+	src/renderer/renderer.cpp \
+	src/scene/scene.cpp \
+	src/object/sphere.cpp \
+	src/bsdf/pbr_bsdf.cpp \
+	src/environment/environment_map.cpp \
+	-o raytracer -lSDL3
 ```
 
 ### Run
 
-```bash
-g++ -std=c++20 -O2 -fopenmp \
-  src/main/main.cpp \
-  src/renderer/renderer.cpp \
-  src/scene/scene.cpp \
-  src/object/sphere.cpp \
-  src/bsdf/pbr_bsdf.cpp \
-  -o raytracer.exe -lSDL3
+Windows:
 
-./raytracer.exe
+```powershell
+.\raytracer.exe
 ```
 
----
-
-## Usage
-
-起動後はキーボード入力でカメラを移動し、視点変更のたびに再レンダリングが走ります。
-
-### Example
+Linux/macOS:
 
 ```bash
-# 操作キー
-# W/S/A/D : 前後左右移動
-# U/Y     : 上下移動
-# P       : 現在のフレームを render_output.ppm として保存
-# ESC     : 終了
+./raytracer
 ```
 
-### Configuration
 
-```json
-{
-  "camera": {
-    "fov": 35.0,
-    "aperture": 0.1,
-    "move_speed": 0.5
-  },
-  "glass_material": {
-    "transmission": 1.0,
-    "ior": 1.5,
-    "absorption_coefficient": [0.35, 0.10, 0.06]
-  },
-  "render": {
-    "width": 800,
-    "height": 600,
-    "samples_per_pixel": 100,
-    "max_depth": 10
-  }
-}
+## Controls
+
+- W/S/A/D: 前後左右移動
+- U/Y: 上下移動
+- P: 現在フレームを `render_output.ppm` として保存
+- ESC: 終了
+
+## Configuration
+
+設定はヘッダ内のインライン変数で管理しています。
+
+- カメラ: `src/main/config/camera_config.hpp`
+- シーン・マテリアル・太陽光・HDRI: `src/main/config/scene_config.hpp`
+
+HDRI を有効化する場合は `scene_config.hpp` の `config::environment` を変更します。
+
+```cpp
+namespace config {
+namespace environment {
+
+inline bool enabled = true;
+inline const char* hdr_path = "img/environment.hdr";
+inline float intensity = 1.0f;
+
+} // namespace environment
+} // namespace config
 ```
 
----
+補足:
 
-## Tech Stack
-
-主要技術は「低レイヤの制御性」と「学習コストの低さ」を重視して選定しています。
-
-| Category       | Technology              | Reason |
-| :------------- | :---------------------- | :----- |
-| Frontend       | SDL3 Window             | 軽量な描画ウィンドウを構築し、レンダリング結果を即時表示できる |
-| Backend        | C++20                   | 高速な数値計算と明確な型設計でレイトレーシング実装に適している |
-| Database       | -                       | オフライン描画ツールのため永続DBは不要 |
-| Infrastructure | OpenMP (CPU並列処理)    | ピクセル計算を並列化してレンダリング時間を短縮できる |
-
----
+- 読み込み失敗時はログに `Failed to load HDRI` を出力し、背景色フォールバックになります。
+- Beer-Lambert を無効化する場合は、ビルド時に `-DRAYTRACER_ENABLE_BEER_LAMBERT=0` を追加してください。
 
 ## Project Structure
 
-主要ディレクトリは、責務ごとに分離した構成です。
-
 ```text
 .
-├── img/                     # 出力例画像
+├── docs/
+├── img/
 ├── src/
-│   ├── main/                
-│   │   ├── main.cpp
-│   │   └── config/
-│   │       ├── camera_config.hpp
-│   │       └── scene_config.hpp
-│   ├── math/                # ベクトル・Ray・乱数などの数学基盤
-│   ├── material/            # マテリアルのパラメータと光学補助（Beer-Lambert）
-│   ├── bsdf/                # BSDF抽象とPBR実装（Lambert + GGX + transmission）
-│   ├── object/              # オブジェクト抽象と球体実装
-│   ├── scene/               # シーンとカメラ
-│   └── renderer/            # レンダリング本体
+│   ├── bsdf/                # IBSDF 抽象と PbrBsdf 実装
+│   ├── environment/         # HDRI ローダと方向サンプリング
+│   ├── main/
+│   │   ├── config/          # camera / scene 設定
+│   │   └── main.cpp
+│   ├── material/            # Material データ + 光学補助
+│   ├── math/                # Vec3 / Ray / random
+│   ├── object/              # Object 抽象 + Sphere
+│   ├── renderer/            # パストレース本体
+│   └── scene/               # Scene / Camera
+├── CMakeLists.txt
 └── README.md
 ```
 
----
-
 ## Roadmap
 
-* [x] 球体・マテリアル・背景光を含む基本レイトレーサー
-* [x] OpenMPによるCPU並列化
-* [ ] BVHなど空間分割による交差判定の高速化
-* [ ] 外部設定ファイル（JSON/TOML）対応
-* [ ] 自動テスト（数値検証・回帰テスト）の追加
-
----
+- [x] PBR BSDF の `sample/eval/pdf` 分離
+- [x] Beer-Lambert 透過影
+- [x] HDRI 環境マップ対応
+- [ ] BVH 導入による交差判定高速化
+- [ ] 環境光の importance sampling と MIS
+- [ ] 自動テスト整備（BSDF/交差/HDR ローダ）
 
 ## License
 

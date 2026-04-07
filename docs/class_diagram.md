@@ -1,4 +1,4 @@
-# クラス図（BSDF リファクタ後）
+# クラス図
 
 ```mermaid
 classDiagram
@@ -12,8 +12,11 @@ classDiagram
         +Color emission
     }
 
-    class MaterialOptics {
-        +beer_lambert_transmittance(material, distance) Color
+    class EnvironmentMap {
+        +load_hdr(path) bool
+        +sample(direction) Color
+        +set_intensity(value)
+        +is_valid() bool
     }
 
     class BsdfSample {
@@ -35,9 +38,16 @@ classDiagram
         +sample(...)
         +eval(...)
         +pdf(...)
-        -GGX_D(...)
-        -GGX_G(...)
-        -Schlick_F(...)
+    }
+
+    class Scene {
+        -vector~unique_ptr~Object~~ objects
+        -vector~Material~ materials
+        -EnvironmentMap environment_map
+        -bool has_environment
+        +find_closest_hit(...)
+        +set_environment_map(...)
+        +sample_environment(direction) Color
     }
 
     class Renderer {
@@ -47,13 +57,6 @@ classDiagram
         -evaluate_shadow_transmittance(scene, shadow_ray)
     }
 
-    class Scene {
-        -vector~unique_ptr~Object~~ objects
-        -vector~Material~ materials
-        +find_closest_hit(...)
-        +get_material(...)
-    }
-
     class Object {
         <<abstract>>
         +hit(ray, t_min, t_max, rec)*
@@ -61,18 +64,23 @@ classDiagram
 
     class Sphere
 
+    class MaterialOptics {
+        +beer_lambert_transmittance(material, distance) Color
+    }
+
     PbrBsdf ..|> IBSDF
     Renderer --> IBSDF : uses abstraction only
     Renderer --> Scene
     Scene --> Material : owns
     Scene --> Object : owns
+    Scene --> EnvironmentMap : optional
     Sphere --|> Object
-    IBSDF --> Material : evaluates parameters
+    IBSDF --> Material : evaluates
     IBSDF --> BsdfSample : returns
-    Renderer --> MaterialOptics : uses for shadow attenuation
+    Renderer --> MaterialOptics : shadow attenuation
 ```
 
 ポイント:
 
-- `Renderer -> IBSDF` の依存逆転により、具体 BSDF 実装追加時もレンダラー変更は不要。
-- `Material` はロジックを持たないため、責務は「パラメータ表現」に限定される。
+- `Renderer` は `IBSDF` と `Scene` にだけ依存し、散乱の具体実装詳細を持ちません。
+- 環境光は `Scene::sample_environment` に隠蔽され、背景色と HDRI の切り替えが同一 API で扱えます。
