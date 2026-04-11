@@ -48,6 +48,12 @@ bool Sphere::hit(const Ray& ray, float t_min, float t_max, HitRecord& rec) const
     get_sphere_uv(outward_normal, rec.u, rec.v);
     rec.set_face_normal(ray, outward_normal);
     rec.material_id = material_id;
+    rec.object_id = object_id;
 
     return true;
+}
+
+AABB Sphere::bounding_box() const {
+    Vec3 radius_vec(radius, radius, radius);
+    return AABB(center - radius_vec, center + radius_vec);
 }

@@ -12,7 +12,12 @@ public:
     Scene() = default;
 
     void add_object(std::unique_ptr<Object> object) {
-        objects.push_back(std::move(object));
+        if (!object) {
+            return;
+        }
+        object->set_object_id(static_cast<int>(objects.size()));
+        objects.push_back(std::shared_ptr<Object>(std::move(object)));
+        bvh_dirty = true;
     }
     void add_material(const Material& mat) {
         materials.push_back(mat);
@@ -54,7 +59,9 @@ public:
     size_t get_material_count() const { return materials.size(); }
 
 private:
-    std::vector<std::unique_ptr<Object>> objects;
+    void build_bvh() const;
+
+    std::vector<std::shared_ptr<Object>> objects;
     std::vector<Material> materials;
     Color background = {0.2f, 0.7f, 0.8f};
     EnvironmentMap environment_map;
@@ -62,4 +69,6 @@ private:
     Vec3 sun_direction = unit_vector(Vec3(-1.0f, -1.0f, -1.0f));
     float sun_intensity = 1.8f;
     Color sun_color = Color(1.0f, 0.97f, 0.92f);
+    mutable std::shared_ptr<Object> bvh_root;
+    mutable bool bvh_dirty{true};
 };

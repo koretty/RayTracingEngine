@@ -2,6 +2,7 @@
 
 #include "../math/vec3.hpp"
 #include "../math/ray.hpp"
+#include "aabb.hpp"
 
 
 struct HitRecord {
@@ -23,10 +24,14 @@ struct HitRecord {
 class Object {
 protected:
     int material_id;
+    int object_id{-1};
 public:
-    Object(int mat_id) : material_id(mat_id) {}
+    explicit Object(int mat_id = -1) : material_id(mat_id) {}
     virtual bool hit(const Ray& ray, float t_min, float t_max, HitRecord& rec) const = 0;
+    virtual AABB bounding_box() const = 0;
     virtual ~Object() = default;
 
     int getMaterialId() const { return material_id; }
+    void set_object_id(int id) { object_id = id; }
+    int get_object_id() const { return object_id; }
 };
