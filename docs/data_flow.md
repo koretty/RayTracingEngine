@@ -9,6 +9,8 @@
     - `Renderer::render(scene, camera)` が OpenMP で画素ループ
     - 1 サンプルごとに `trace_ray` を再帰実行
 - hit 時:
+    - `Scene::find_closest_hit` が必要に応じて BVH を構築し、交差探索を実行
+    - `material.sample_albedo/emission` で材質入力を取得
     - `bsdf.eval` で直達太陽光
     - `evaluate_shadow_transmittance` で Beer-Lambert 減衰
     - `bsdf.sample` で次方向を生成して再帰
@@ -37,10 +39,12 @@ graph TD
         N --> O[trace_ray]
 
         O --> P[Scene.find_closest_hit]
-        P -->|hit| Q[material fetch]
-        P -->|miss| R[Scene.sample_environment]
+        P --> P2[BVH traversal or build]
+        P2 -->|hit| Q[material fetch]
+        P2 -->|miss| R[Scene.sample_environment]
 
-        Q --> S[bsdf.eval direct sun]
+        Q --> Q2[material.sample_albedo and sample_emission]
+        Q2 --> S[bsdf.eval direct sun]
         Q --> T[evaluate_shadow_transmittance]
         Q --> U[bsdf.sample indirect bounce]
         U --> O
