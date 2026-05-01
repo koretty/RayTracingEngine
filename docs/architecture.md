@@ -75,34 +75,7 @@ graph TD
     
 
 ```
-### 1.3 scene.cppの役割
-`scene.cpp`は、シーンの情報を管理し、レンダリングに必要なデータを提供する役割を担っています。以下の図は、`scene.cpp`がどのように他のコンポーネントと連携しているかを示しています。
 
-```mermaid
-graph TD
-    Scene["scene.hpp"]
-    Camera["camera.hpp"]
-
-    subgraph MainContainer [" "]
-        direction TB
-
-        Title{"scene.cpp"}
-        style Title fill:none,stroke:none,font-size:18px,font-weight:bold
-        
-        Step1["1. 全ピクセルに対してループを回す"]
-
-
-        Title ~~~ Step1
-        Step1 
-    end
-
-    Scene -->|シーン情報| Step1
-    Camera -->|カメラ情報| Step1
-    
-
-```
-### 1.4 bsdf.cppの役割
-### 1.5 pbr_bsdf.cppの役割
 ## 2. 技術スタック 
 
 
