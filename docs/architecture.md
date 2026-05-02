@@ -89,5 +89,8 @@ src/
 │   └── config/
 │       ├── scene_config.hpp    # シーン設定
 │       └── camera_config.hpp   # カメラ設定
+├── renderer/
+│   ├── renderer.cpp            # レンダリング処理
+│   └── renderer.hpp            # レンダラーのインターフェース情報
 ```
 
