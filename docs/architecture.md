@@ -76,6 +76,31 @@ graph TD
 
 ```
 
+
+### 1.3 scene.cppの役割
+`scene.cpp`は、シーンの情報を管理し、レンダリング処理に必要なデータを提供する役割を担っています。以下の図は、`scene.cpp`がどのように他のコンポーネントと連携しているかを示しています。
+
+```mermaid
+graph TD
+    Object["object.hpp"]
+    Material["material.hpp"]
+
+    subgraph MainContainer [" "]
+        direction TB
+
+        Title{"scene.cpp / find_closest_hit"}
+        style Title fill:none,stroke:none,font-size:18px,font-weight:bold
+
+        Step1["1. "]
+    
+    end
+
+
+    
+
+```
+
+
 ## 2. 技術スタック 
 
 
