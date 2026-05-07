@@ -89,9 +89,14 @@ graph TD
         Title{"scene.cpp / find_closest_hit"}
         style Title fill:none,stroke:none,font-size:18px,font-weight:bold
 
-        Step1["1. "]
-    
+        Step1["1. bvhツリーを探索する"]
+        Step2{"2. bvhノードがあるか？"}
+        Step3["3. hit関数で内部のオブジェクトと交差するか判定"]
+        Step1 --> Step2 
+        Step2 -- Yes --> Step3
+        Step2 -- No --> NoHit["falseを返す"]
     end
+
 
 
     
