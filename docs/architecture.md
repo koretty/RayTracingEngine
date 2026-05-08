@@ -89,12 +89,35 @@ graph TD
         Title{"scene.cpp / find_closest_hit"}
         style Title fill:none,stroke:none,font-size:18px,font-weight:bold
 
-        Step1["1. bvhツリーを探索する"]
-        Step2{"2. bvhノードがあるか？"}
-        Step3["3. hit関数で内部のオブジェクトと交差するか判定"]
-        Step1 --> Step2 
-        Step2 -- Yes --> Step3
-        Step2 -- No --> NoHit["falseを返す"]
+        %% ダブルチェックロッキング部分（前半）
+        CheckDirty1{"1. BVHは更新が必要か？"}
+        LockMutex["2. ミューテックスをロック"]
+        CheckDirty2{"3. 本当に更新が必要か？"}
+        BuildBVH["4. build_bvh()を実行"]
+
+     
+        CopyBVH["5. bvh_rootをローカル変数にコピー"]
+        CheckBVH{"6. BVHノードが存在するか？"}
+        CallHit["7. hit関数で内部オブジェクトと交差判定"]
+        
+        %% 終了ノード
+        ReturnHitResult(["交差判定の結果を返す (true/false)"])
+        ReturnFalse(["falseを返す"])
+
+        %% フローの接続
+        CheckDirty1 -- Yes --> LockMutex
+        CheckDirty1 -- No --> CopyBVH
+        
+        LockMutex --> CheckDirty2
+        CheckDirty2 -- Yes --> BuildBVH
+        CheckDirty2 -- No --> CopyBVH
+        
+        BuildBVH --> CopyBVH
+        
+        CopyBVH --> CheckBVH
+        CheckBVH -- Yes --> CallHit
+        CallHit --> ReturnHitResult
+        CheckBVH -- No --> ReturnFalse
     end
 
 
