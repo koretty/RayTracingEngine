@@ -89,7 +89,6 @@ graph TD
         Title{"scene.cpp / find_closest_hit"}
         style Title fill:none,stroke:none,font-size:18px,font-weight:bold
 
-        %% ダブルチェックロッキング部分（前半）
         CheckDirty1{"1. BVHは更新が必要か？"}
         LockMutex["2. ミューテックスをロック"]
         CheckDirty2{"3. 本当に更新が必要か？"}
@@ -125,7 +124,7 @@ graph TD
     
 
 ```
-
+### 1.3 bvh.cppの役割
 
 ## 2. 技術スタック 
 
