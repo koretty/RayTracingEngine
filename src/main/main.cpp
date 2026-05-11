@@ -13,7 +13,7 @@
 void save_image(const char* filename, const uint32_t* pixels, int width, int height) {
     std::ofstream out(filename);
     out << "P3\n" << width << " " << height << "\n255\n";
-    for (int i = 0; i < width * height; ++i) {
+    for (int i = 0; i < width * height; i++) {
         uint32_t pixel = pixels[i];
         int r = (pixel >> 16) & 0xFF;
         int g = (pixel >> 8) & 0xFF;
